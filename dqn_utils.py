@@ -136,7 +136,6 @@ class PiecewiseSchedule(object):
         assert self._outside_value is not None
         return self._outside_value
 
-
 # ------------------------------------------------------------------------------
 # REPLAY BUFFER
 # ------------------------------------------------------------------------------
@@ -319,3 +318,70 @@ class ReplayBuffer(object):
         self.action[idx] = action
         self.reward[idx] = reward
         self.done[idx]   = done
+
+class PrioritizedReplayBuffer(ReplayBuffer):
+    # SumTree code modeled after https://github.com/MorvanZhou/Reinforcement-learning-with-tensorflow/blob/master/experiments/Solve_LunarLander/DuelingDQNPrioritizedReplay.py
+    def __init__(self, size, frame_history_len, alpha, cartpole=False):
+        super().__init__(size, frame_history_len, cartpole)
+
+        self.sum_tree = np.zeros(2 * self.size - 1)
+        self.alpha = alpha
+        self.max_priority = 1
+
+    def sample(self, batch_size):
+        assert self.can_sample(batch_size)
+        # idxes = sample_n_unique(lambda: random.randint(0, self.num_in_buffer - 2), batch_size)
+        idxes = []
+        priorities = [] 
+        step_size = self.sum_tree[0]/batch_size
+        for lower in np.arange(0, self.sum_tree[0], step_size):
+            priority = np.random.uniform(lower, lower+step_size)
+            idx, actual_priority = self.search(priority)
+
+            idxes.append(idx)
+            priorities.append(actual_priority)
+
+        return self._encode_sample(idxes), priorities, idxes
+
+    def store_effect(self, idx, action, reward, done, priority):
+        self.action[idx] = action
+        self.reward[idx] = reward
+        self.done[idx]   = done
+
+        self.update_priority((priority+1e-8)**self.alpha, idx + self.size - 1)
+
+    def max_priority(self):
+        return self.max_priority
+
+    def update_priority(self, priority, tree_index):
+        self.sum_tree[tree_index] = priority
+        self.max_priority = max(self.max_priority, priority)
+
+        change = priority - self.sum_tree[tree_index]
+        self._propagate_change(tree_index, change)
+
+    def _propogate_change(self, tree_index, delta):
+        parent_idx = (tree_idx - 1) // 2
+        self.sum_tree[parent_idx] += delta
+        if parent_idx != 0:
+            self._propogate_change(parent_idx, delta)
+
+    def search(self, value):
+        current_index = 0
+
+        left_child = 2*current_index + 1
+        right_child = left_child + 1
+
+        while left_child < len(self.sum_tree):
+            if self.sum_tree[left_child] == self.sum_tree[right_child]:
+                current_index = np.random.choice([left_child, right_child])
+            elif value <= self.sum_tree[left_child]:
+                current_index = left_child
+            else:
+                current_index = right_child
+                value -= self.sum_tree[left_child]
+
+            left_child = 2*current_index + 1
+            right_child = left_child + 1
+
+        return current_index, self.sum_tree[current_index]
