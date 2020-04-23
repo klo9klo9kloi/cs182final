@@ -3,6 +3,7 @@
 import gym
 import numpy as np
 import random
+import math
 
 def sample_n_unique(sampling_f, n):
     """Helper function. Given a function `sampling_f` that returns comparable
@@ -244,6 +245,13 @@ class ReplayBuffer(object):
         assert self.num_in_buffer > 0
         return self._encode_observation((self.next_idx - 1) % self.size)
 
+    # IMPORTANT: this breaks if the last index in the buffer is sampled and you try to encode the next obs state
+    # e.g. replay_buffer_size=100, if you sample 99 and then try to encode 100, there currently no checks 
+    # in the code below and it returns self.obs[101-n:101] which is only n-1 states and not n states.
+    # hasn't been a problem for assignment 4 before because replay buffer size has always been greater than training 
+    # timestep budget, and also the sampling method is hardcoded to only return up to index size-2. p
+    # probably not a problem for procgen though since a replay buffer of size 1M is still
+    # computationally feasible, but just a wierd discovery.
     def _encode_observation(self, idx):
         end_idx   = idx + 1 # make noninclusive
         start_idx = end_idx - self.frame_history_len
@@ -320,68 +328,74 @@ class ReplayBuffer(object):
         self.done[idx]   = done
 
 class PrioritizedReplayBuffer(ReplayBuffer):
-    # SumTree code modeled after https://github.com/MorvanZhou/Reinforcement-learning-with-tensorflow/blob/master/experiments/Solve_LunarLander/DuelingDQNPrioritizedReplay.py
+    # SumTree code modeled after https://github.com/google/dopamine/blob/master/dopamine/replay_memory/sum_tree.py
     def __init__(self, size, frame_history_len, alpha, cartpole=False):
         super().__init__(size, frame_history_len, cartpole)
 
-        self.sum_tree = np.zeros(2 * self.size - 1)
+        self.nodes = []
+        tree_depth = int(math.ceil(np.log2(size)))
+        level_size = 1
+        for _ in range(tree_depth + 1):
+          nodes_at_this_depth = np.zeros(level_size)
+          self.nodes.append(nodes_at_this_depth)
+
+          level_size *= 2
+
         self.alpha = alpha
-        self.max_priority = 1
+        self.max_priority_value = 1
+
+    def _total_priority(self):
+        return self.nodes[0][0]
 
     def sample(self, batch_size):
         assert self.can_sample(batch_size)
-        # idxes = sample_n_unique(lambda: random.randint(0, self.num_in_buffer - 2), batch_size)
+
+        bounds = np.linspace(0., 1., batch_size + 1)
+        assert len(bounds) == batch_size + 1
+        segments = [(bounds[i], bounds[i+1]) for i in range(batch_size)]
+
         idxes = []
         priorities = [] 
-        step_size = self.sum_tree[0]/batch_size
-        for lower in np.arange(0, self.sum_tree[0], step_size):
-            priority = np.random.uniform(lower, lower+step_size)
-            idx, actual_priority = self.search(priority)
+        for segment in segments:
+            priority = np.random.uniform(segment[0], segment[1])
+            idx, actual_priority = self.search(priority * self._total_priority())
 
             idxes.append(idx)
             priorities.append(actual_priority)
+        return self._encode_sample(idxes), np.array(priorities), np.array(idxes)
 
-        return self._encode_sample(idxes), priorities, idxes
-
-    def store_effect(self, idx, action, reward, done, priority):
+    def store_effect(self, idx, action, reward, done):
         self.action[idx] = action
         self.reward[idx] = reward
         self.done[idx]   = done
 
-        self.update_priority((priority+1e-8)**self.alpha, idx + self.size - 1)
+        self._update_priority((self.max_priority_value), idx)
 
-    def max_priority(self):
-        return self.max_priority
+    def update_priorities(self, new_priorities, indices):
+        assert(len(new_priorities) == len(indices))
+        for i in range(len(new_priorities)):
+            self._update_priority( (new_priorities[i]+1e-8)**self.alpha, indices[i])
 
-    def update_priority(self, priority, tree_index):
-        self.sum_tree[tree_index] = priority
-        self.max_priority = max(self.max_priority, priority)
+    def _update_priority(self, priority, index):
+        self.max_priority_value = max(self.max_priority_value, priority)
 
-        change = priority - self.sum_tree[tree_index]
-        self._propagate_change(tree_index, change)
+        delta = priority - self.nodes[-1][index]
 
-    def _propogate_change(self, tree_index, delta):
-        parent_idx = (tree_idx - 1) // 2
-        self.sum_tree[parent_idx] += delta
-        if parent_idx != 0:
-            self._propogate_change(parent_idx, delta)
+        current_index = index
+        for j in range(len(self.nodes)-1, -1, -1):
+            nodes_at_this_depth = self.nodes[j]
+            nodes_at_this_depth[current_index] += delta
+            current_index = current_index // 2
 
     def search(self, value):
         current_index = 0
 
-        left_child = 2*current_index + 1
-        right_child = left_child + 1
-
-        while left_child < len(self.sum_tree):
-            if self.sum_tree[left_child] == self.sum_tree[right_child]:
-                current_index = np.random.choice([left_child, right_child])
-            elif value <= self.sum_tree[left_child]:
-                current_index = left_child
-            else:
-                current_index = right_child
-                value -= self.sum_tree[left_child]
-
-            left_child = 2*current_index + 1
-            right_child = left_child + 1
-
-        return current_index, self.sum_tree[current_index]
+        for nodes_at_this_depth in self.nodes[1:]:
+          left_child = current_index * 2
+          left_sum = nodes_at_this_depth[left_child]
+          if value < left_sum: 
+            current_index = left_child
+          else:  
+            current_index = left_child + 1
+            value -= left_sum
+        return current_index, self.nodes[-1][current_index]

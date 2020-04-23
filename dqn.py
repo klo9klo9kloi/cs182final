@@ -42,7 +42,7 @@ def step_env(env, replay_buffer, num_actions, exploration_schedule, t, last_obs,
         action = np.argmax(q_vals.cpu().numpy())
 
     obs, reward, done, info = env.step(action)
-    replay_buffer.store_effect(frame_idx, action, reward, done, replay_buffer.max_priority())
+    replay_buffer.store_effect(frame_idx, action, reward, done)
     if done:
         obs = env.reset()
     return obs
@@ -53,7 +53,8 @@ def update_model(optimizer, t, replay_buffer, policy, target, gamma, clip, batch
         t % learning_freq == 0 and \
         replay_buffer.can_sample(batch_size)):
 
-        obs_batch, act_batch, rew_batch, next_obs_batch, done_mask, priorities, indices = replay_buffer.sample(batch_size)
+        sample, priorities, indices = replay_buffer.sample(batch_size)
+        obs_batch, act_batch, rew_batch, next_obs_batch, done_mask = sample
 
         obs_batch = torch.stack([torchvision.transforms.functional.to_tensor(ob) for ob in obs_batch]).to(device)
         next_obs_batch = torch.stack([torchvision.transforms.functional.to_tensor(ob) for ob in next_obs_batch]).to(device)
@@ -61,7 +62,9 @@ def update_model(optimizer, t, replay_buffer, policy, target, gamma, clip, batch
         rew_batch = torch.from_numpy(rew_batch).to(device)
         done_mask = torch.from_numpy(done_mask).to(device)
 
-        is_weights = (priorities*replay_buffer.size)**-beta
+        # print(priorities)
+        is_weights = (priorities*replay_buffer.size + 1e-10)**-beta
+        # print(is_weights)
         is_weights /= np.max(is_weights)
         is_weights = torch.from_numpy(is_weights).to(device)
 

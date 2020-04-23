@@ -47,7 +47,7 @@ def learn(env, args):
         replay_buffer_size=1000000,
         batch_size=32,
         gamma=0.99,
-        learning_starts=50000,
+        learning_starts=10000,
         learning_freq=4,
         frame_history_len=4,
         target_update_freq=10000,
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     if args.seed is None:
         args.seed = random.randint(0, 9999)
     print('random seed = {}'.format(args.seed))
-    exp_name = 'double-dqn'
+    exp_name = 'our-dqn'
 
     if not(os.path.exists('data_dqn')):
         os.makedirs('data_dqn')
