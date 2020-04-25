@@ -65,7 +65,14 @@ def set_global_seeds(i):
     random.seed(i)
 
 def get_env(args):
+
+    print("the arguments of gym.make")
+    import inspect
+    print(inspect.getargspec(gym.make))
+
     env = gym.make("procgen:procgen-" + args.env + "-v0", num_levels=args.num_levels, start_level=args.start_seed, distribution_mode='easy')
+    # env = gym.make("procgen:procgen-" + args.env + "-v0", args)
+
     set_global_seeds(args.seed)
     expt_dir = os.path.join(args.logdir, "procgen")
     return wrappers.Monitor(env, expt_dir, force=True)
@@ -95,5 +102,6 @@ if __name__ == "__main__":
     logdir = os.path.join('data_dqn', logdir)
     logz.configure_output_dir(logdir)
     args.logdir = logdir
+
     env = get_env(args)
     learn(env, args)
