@@ -66,7 +66,7 @@ def learn(env, session, args):
             replay_buffer_size=1000000,
             batch_size=32,
             gamma=0.99,
-            learning_starts=10000,
+            learning_starts=50000,
             learning_freq=4,
             frame_history_len=4,
             target_update_freq=10000,
