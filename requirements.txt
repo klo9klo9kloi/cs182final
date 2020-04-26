@@ -1,4 +1,4 @@
-gym==0.10.5
+gym==0.17.1
 procgen==0.9.4
 atari-py==0.1.7
 numpy==1.14.5
