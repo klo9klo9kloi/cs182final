@@ -48,14 +48,15 @@ def step_env(env, replay_buffer, num_actions, exploration_schedule, t, last_obs,
     return obs
 
 def update_model(optimizer, t, replay_buffer, policy, target, gamma, clip, batch_size, num_actions,
-                    learning_starts, learning_freq, num_param_updates, target_update_freq, pr, beta):
+                    learning_starts, learning_freq, num_param_updates, target_update_freq, double_q, pr, beta):
     if (t > learning_starts and \
         t % learning_freq == 0 and \
         replay_buffer.can_sample(batch_size)):
 
         sample = replay_buffer.sample(batch_size)
         if pr:
-            obs_batch, act_batch, rew_batch, next_obs_batch, done_mask, priorities, indices = sample
+            transition_infos, priorities, indices = sample
+            obs_batch, act_batch, rew_batch, next_obs_batch, done_mask = transition_infos
         else:
             obs_batch, act_batch, rew_batch, next_obs_batch, done_mask = sample
 
@@ -73,11 +74,15 @@ def update_model(optimizer, t, replay_buffer, policy, target, gamma, clip, batch
         policy.zero_grad()
 
         q_t = policy(obs_batch).gather(1, act_batch.reshape(-1, 1)).flatten()
-
-        with torch.no_grad():
-            policy.eval()
-            q_tp1 = torch.argmax(policy(next_obs_batch), axis=1)
-            y_t = rew_batch + (1-done_mask)*gamma*q_target_tp1.gather(1, q_tp1.reshape(-1, 1)).flatten()
+        
+        if double_q:
+            with torch.no_grad():
+                policy.eval()
+                q_tp1 = torch.argmax(policy(next_obs_batch), axis=1)
+                y_t = rew_batch + (1-done_mask)*gamma*q_target_tp1.gather(1, q_tp1.reshape(-1, 1)).flatten()
+        else:
+            with torch.no_grad():
+                y_t = rew_batch + (1-done_mask)*gamma*torch.max(q_target_tp1, axis=1)[0].reshape(-1, 1).flatten()
 
         if pr:
             is_weights = (priorities*replay_buffer.size + 1e-10)**-beta
@@ -138,6 +143,7 @@ def learn(env,
          grad_norm_clipping,
          logdir=None,
          max_steps=2e8,
+         double_q=True,
          pr=False,
          beta=0.4,
          alpha=0.6):
@@ -168,7 +174,7 @@ def learn(env,
         last_obs = step_env(env, replay_buffer, num_actions, exploration, t, last_obs, t > learning_starts, policy)
 
         num_param_updates = update_model(optimizer, t, replay_buffer, policy, target, gamma, grad_norm_clipping, batch_size, num_actions,
-                    learning_starts, learning_freq, num_param_updates, target_update_freq, pr, beta)
+                    learning_starts, learning_freq, num_param_updates, target_update_freq, double_q, pr, beta)
         t += 1
         log_progress(env, t, log_every_n_steps, optimizer.param_groups[0]['lr'], start_time, exploration, best_mean_episode_reward)
         if t > max_steps:

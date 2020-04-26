@@ -47,13 +47,14 @@ def learn(env, args):
         replay_buffer_size=1000000,
         batch_size=32,
         gamma=0.99,
-        learning_starts=10000,
+        learning_starts=50000,
         learning_freq=4,
         frame_history_len=4,
         target_update_freq=10000,
         grad_norm_clipping=10,
         logdir=args.logdir,
         max_steps=args.num_steps,
+        double_q=args.double_q,
         pr=args.pr,
         beta=args.beta,
         alpha=args.alpha
@@ -69,6 +70,7 @@ def set_global_seeds(i):
 def get_env(args):
     env = gym.make("procgen:procgen-" + args.env + "-v0", num_levels=args.num_levels, start_level=args.start_seed, distribution_mode='easy')
     set_global_seeds(args.seed)
+    env.seed(args.seed)
     expt_dir = os.path.join(args.logdir, "procgen")
     return wrappers.Monitor(env, expt_dir, force=True)
 
