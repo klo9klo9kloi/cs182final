@@ -54,6 +54,7 @@ def learn(env, args):
         grad_norm_clipping=10,
         logdir=args.logdir,
         max_steps=args.num_steps,
+        pr=args.pr,
         beta=args.beta,
         alpha=args.alpha
     )
@@ -77,7 +78,9 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=None)
     parser.add_argument('--start_seed', type=int, default=0)
     parser.add_argument('--num_steps', type=int, default=1e5) #100K, 250K, or 1M
+    parser.add_argument('--double_q', action='store_true', default=False)
     parser.add_argument('--num_levels', type=int, default=50) #50, 100, 250, 500
+    parser.add_argument('--pr', action='store_true', default=False)
     parser.add_argument('--beta', type=float, default=0.4)
     parser.add_argument('--alpha', type=float, default=0.6)
     # parser.add_argument('--num_envs', type=int, default=1) # can be used for parallel agents?
@@ -87,7 +90,11 @@ if __name__ == "__main__":
     if args.seed is None:
         args.seed = random.randint(0, 9999)
     print('random seed = {}'.format(args.seed))
-    exp_name = 'our-dqn'
+    exp_name = 'dqn'
+    if args.double_q:
+        exp_name = 'double-dqn'
+    if args.pr:
+        exp_name += '_pr'
 
     if not(os.path.exists('data_dqn')):
         os.makedirs('data_dqn')

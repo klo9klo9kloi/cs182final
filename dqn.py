@@ -48,25 +48,22 @@ def step_env(env, replay_buffer, num_actions, exploration_schedule, t, last_obs,
     return obs
 
 def update_model(optimizer, t, replay_buffer, policy, target, gamma, clip, batch_size, num_actions,
-                    learning_starts, learning_freq, num_param_updates, target_update_freq, beta):
+                    learning_starts, learning_freq, num_param_updates, target_update_freq, pr, beta):
     if (t > learning_starts and \
         t % learning_freq == 0 and \
         replay_buffer.can_sample(batch_size)):
 
-        sample, priorities, indices = replay_buffer.sample(batch_size)
-        obs_batch, act_batch, rew_batch, next_obs_batch, done_mask = sample
+        sample = replay_buffer.sample(batch_size)
+        if pr:
+            obs_batch, act_batch, rew_batch, next_obs_batch, done_mask, priorities, indices = sample
+        else:
+            obs_batch, act_batch, rew_batch, next_obs_batch, done_mask = sample
 
         obs_batch = torch.stack([torchvision.transforms.functional.to_tensor(ob) for ob in obs_batch]).to(device)
         next_obs_batch = torch.stack([torchvision.transforms.functional.to_tensor(ob) for ob in next_obs_batch]).to(device)
         act_batch = torch.from_numpy(act_batch).type(torch.LongTensor).to(device)
         rew_batch = torch.from_numpy(rew_batch).to(device)
         done_mask = torch.from_numpy(done_mask).to(device)
-
-        # print(priorities)
-        is_weights = (priorities*replay_buffer.size + 1e-10)**-beta
-        # print(is_weights)
-        is_weights /= np.max(is_weights)
-        is_weights = torch.from_numpy(is_weights).to(device)
 
         with torch.no_grad():
             q_target_tp1 = target(next_obs_batch)
@@ -82,12 +79,20 @@ def update_model(optimizer, t, replay_buffer, policy, target, gamma, clip, batch
             q_tp1 = torch.argmax(policy(next_obs_batch), axis=1)
             y_t = rew_batch + (1-done_mask)*gamma*q_target_tp1.gather(1, q_tp1.reshape(-1, 1)).flatten()
 
-        total_error = torch.mean(is_weights * huber_loss(y_t - q_t))
+        if pr:
+            is_weights = (priorities*replay_buffer.size + 1e-10)**-beta
+            is_weights /= np.max(is_weights)
+            is_weights = torch.from_numpy(is_weights).to(device)
+            total_error = torch.mean(is_weights * huber_loss(y_t - q_t))
+        else:
+            total_error = torch.mean(huber_loss(y_t - q_t))
+
         total_error.backward()
         nn.utils.clip_grad_norm_(policy.parameters(), clip)
         optimizer.step()
 
-        replay_buffer.update_priorities(np.abs(y_t.data.cpu().numpy()), indices)
+        if pr:
+            replay_buffer.update_priorities(np.abs(y_t.data.cpu().numpy()), indices)
 
         if num_param_updates % target_update_freq == 0:
             target.load_state_dict(policy.state_dict())
@@ -133,6 +138,7 @@ def learn(env,
          grad_norm_clipping,
          logdir=None,
          max_steps=2e8,
+         pr=False,
          beta=0.4,
          alpha=0.6):
 
@@ -143,7 +149,10 @@ def learn(env,
     target.eval()
 
     optimizer = torch.optim.Adam(policy.parameters(), lr=1e-4)
-    replay_buffer = PrioritizedReplayBuffer(replay_buffer_size, frame_history_len, alpha)
+    if pr:
+        replay_buffer = PrioritizedReplayBuffer(replay_buffer_size, frame_history_len, alpha)
+    else:
+        replay_buffer = ReplayBuffer(replay_buffer_size, frame_history_len)
     replay_buffer_idx = None
 
     start_time = time.time()
@@ -159,7 +168,7 @@ def learn(env,
         last_obs = step_env(env, replay_buffer, num_actions, exploration, t, last_obs, t > learning_starts, policy)
 
         num_param_updates = update_model(optimizer, t, replay_buffer, policy, target, gamma, grad_norm_clipping, batch_size, num_actions,
-                    learning_starts, learning_freq, num_param_updates, target_update_freq, beta)
+                    learning_starts, learning_freq, num_param_updates, target_update_freq, pr, beta)
         t += 1
         log_progress(env, t, log_every_n_steps, optimizer.param_groups[0]['lr'], start_time, exploration, best_mean_episode_reward)
         if t > max_steps:
