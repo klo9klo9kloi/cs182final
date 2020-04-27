@@ -57,7 +57,9 @@ def learn(env, args):
         double_q=args.double_q,
         pr=args.pr,
         beta=args.beta,
-        alpha=args.alpha
+        alpha=args.alpha,
+        n=args.n,
+        h=args.h
     )
     env.close()
 
@@ -92,10 +94,14 @@ if __name__ == "__main__":
     parser.add_argument('--pr', action='store_true', default=False)
     parser.add_argument('--beta', type=float, default=0.4)
     parser.add_argument('--alpha', type=float, default=0.6)
+    parser.add_argument('--n', type = int, default = 1)
+    parser.add_argument('--h', action='store_true', default=False)
     # parser.add_argument('--num_envs', type=int, default=1) # can be used for parallel agents?
     args = parser.parse_args()
 
-    assert args.env in ['coinrun', 'caveflyer', 'jumper']
+    assert args.n >= 1, "n-step must be at least 1."
+
+    assert args.env in ['coinrun', 'caveflyer', 'jumper', 'fruitbot']
     if args.seed is None:
         args.seed = random.randint(0, 9999)
     print('random seed = {}'.format(args.seed))
