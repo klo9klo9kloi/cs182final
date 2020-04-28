@@ -97,6 +97,7 @@ if __name__ == "__main__":
     parser.add_argument('--n', type = int, default = 1)
     parser.add_argument('--h', action='store_true', default=False)
     # parser.add_argument('--num_envs', type=int, default=1) # can be used for parallel agents?
+    parser.add_argument('--root_logdir', default='./data_dqn')
     args = parser.parse_args()
 
     assert args.n >= 1, "n-step must be at least 1."
@@ -111,10 +112,10 @@ if __name__ == "__main__":
     if args.pr:
         exp_name += '_pr'
 
-    if not(os.path.exists('data_dqn')):
-        os.makedirs('data_dqn')
+    if not(os.path.exists(args.root_logdir)):
+        os.makedirs(args.root_logdir)
     logdir = exp_name+ '_' +args.env+ '_' +time.strftime("%d-%m-%Y_%H-%M-%S")
-    logdir = os.path.join('data_dqn', logdir)
+    logdir = os.path.join(args.root_logdir, logdir)
     logz.configure_output_dir(logdir)
     args.logdir = logdir
 
