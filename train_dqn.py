@@ -52,9 +52,14 @@ def learn(env, args):
         frame_history_len=4,
         target_update_freq=10000,
         grad_norm_clipping=10,
-        double_q=args.double_q,
         logdir=args.logdir,
-        max_steps=args.num_steps
+        max_steps=args.num_steps,
+        double_q=args.double_q,
+        pr=args.pr,
+        beta=args.beta,
+        alpha=args.alpha,
+        n=args.n,
+        h=args.h
     )
     env.close()
 
@@ -74,6 +79,7 @@ def get_env(args):
     # env = gym.make("procgen:procgen-" + args.env + "-v0", args)
 
     set_global_seeds(args.seed)
+    env.seed(args.seed)
     expt_dir = os.path.join(args.logdir, "procgen")
     return wrappers.Monitor(env, expt_dir, force=True)
 
@@ -85,9 +91,15 @@ if __name__ == "__main__":
     parser.add_argument('--num_steps', type=int, default=1e5) #100K, 250K, or 1M
     parser.add_argument('--double_q', action='store_true', default=False)
     parser.add_argument('--num_levels', type=int, default=50) #50, 100, 250, 500
+    parser.add_argument('--pr', action='store_true', default=False)
+    parser.add_argument('--beta', type=float, default=0.4)
+    parser.add_argument('--alpha', type=float, default=0.6)
+    parser.add_argument('--n', type = int, default = 1)
+    parser.add_argument('--h', action='store_true', default=False)
     # parser.add_argument('--num_envs', type=int, default=1) # can be used for parallel agents?
+    parser.add_argument('--root_logdir', default='./data_dqn')
     args = parser.parse_args()
-
+    assert args.n >= 1, "n-step must be at least 1."
     assert args.env in ['coinrun', 'caveflyer', 'jumper', 'fruitbot']
     if args.seed is None:
         args.seed = random.randint(0, 9999)
@@ -95,11 +107,13 @@ if __name__ == "__main__":
     exp_name = 'dqn'
     if args.double_q:
         exp_name = 'double-dqn'
+    if args.pr:
+        exp_name += '_pr'
 
-    if not(os.path.exists('data_dqn')):
-        os.makedirs('data_dqn')
+    if not(os.path.exists(args.root_logdir)):
+        os.makedirs(args.root_logdir)
     logdir = exp_name+ '_' +args.env+ '_' +time.strftime("%d-%m-%Y_%H-%M-%S")
-    logdir = os.path.join('data_dqn', logdir)
+    logdir = os.path.join(args.root_logdir, logdir)
     logz.configure_output_dir(logdir)
     args.logdir = logdir
 
