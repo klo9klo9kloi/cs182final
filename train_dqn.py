@@ -88,7 +88,7 @@ if __name__ == "__main__":
     # parser.add_argument('--num_envs', type=int, default=1) # can be used for parallel agents?
     args = parser.parse_args()
 
-    assert args.env in ['coinrun', 'caveflyer', 'jumper']
+    assert args.env in ['coinrun', 'caveflyer', 'jumper', 'fruitbot']
     if args.seed is None:
         args.seed = random.randint(0, 9999)
     print('random seed = {}'.format(args.seed))
