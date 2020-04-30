@@ -137,3 +137,4 @@ if __name__ == "__main__":
 
     env = get_env(args)
     learn(env, args)
+# ran with seed 70, 100, 200

@@ -15,6 +15,10 @@ from collections import namedtuple
 from dqn_utils import *
 from icm.curiosity import CuriosityModule
 
+# DQNSpec = namedtuple("DQNSpec", ["constructor", "kwargs", "lr_schedule"])
+# PRSpec = namedtuple("PRSpec", ["alpha", "beta"])
+# ICMSpec = namedtuple("ICMSpec", ["module", "optimizer", "history"])
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def huber_loss(x, delta=1.0):
@@ -38,7 +42,7 @@ def step_env(env, replay_buffer, num_actions, exploration_schedule, t, last_obs,
     reward = 0
 
     for i in range(n):
-        if not icm and (not model_initialized or np.random.random() < explor_prob):
+        if not model_initialized or (not icm and np.random.random() < explor_prob):
             action = np.random.randint(num_actions)
         else:
             with torch.no_grad():
@@ -76,8 +80,7 @@ def h_inv(x, epsilon = 0.0001):
     return torch.sign(x) * (1 + torch.abs(x - torch.sign(x) * x * epsilon)) ** 2 - 1
 
 def update_model(optimizer, t, replay_buffer, policy, target, gamma, clip, batch_size, num_actions,
-                    learning_starts, learning_freq, num_param_updates, target_update_freq, double_q, pr, beta, h, icm_module):
-    icm_r = 0
+                    learning_starts, learning_freq, num_param_updates, target_update_freq, double_q, pr, beta, h, icm_module, icm_optimizer, icm_r_history):
     if (t > learning_starts and \
         t % learning_freq == 0 and \
         replay_buffer.can_sample(batch_size)):
@@ -120,9 +123,10 @@ def update_model(optimizer, t, replay_buffer, policy, target, gamma, clip, batch
                     y_t = rew_batch + (1-done_mask)*gamma*torch.max(q_target_tp1, axis=1)[0].reshape(-1, 1).flatten()
 
         if icm_module is not None:
+            icm_optimizer.zero_grad()
             # add intrinsic reward to target
             icm_loss, y_t_intrinsic = icm_module(obs_batch, next_obs_batch, act_batch)
-            icm_r = y_t_intrinsic # for logging
+            icm_r_history.append(np.mean(y_t_intrinsic.data.cpu().numpy())) # for logging
             y_t += y_t_intrinsic
 
         if pr:
@@ -141,21 +145,28 @@ def update_model(optimizer, t, replay_buffer, policy, target, gamma, clip, batch
         nn.utils.clip_grad_norm_(policy.parameters(), clip)
         optimizer.step()
 
+        if icm_module is not None:
+            icm_optimizer.step()
+
         if pr:
             replay_buffer.update_priorities(np.abs(y_t.data.cpu().numpy()), indices)
 
         if num_param_updates % target_update_freq == 0:
             target.load_state_dict(policy.state_dict())
         num_param_updates += 1
-    return num_param_updates, icm_r
+    return num_param_updates
 
 
-def log_progress(env, t, log_every_n_steps, lr, start_time, exploration, best_mean_episode_reward, last_icm_r):
+def log_progress(env, t, log_every_n_steps, lr, start_time, exploration, best_mean_episode_reward, icm_r_history):
     episode_rewards = get_wrapper_by_name(env, "Monitor").get_episode_rewards()
 
     if len(episode_rewards) > 0:
         mean_episode_reward = np.mean(episode_rewards[-100:])
         std_episode_reward  = np.std(episode_rewards[-100:])
+    if len(icm_r_history) > 100:
+        mean_icm_r = np.mean(icm_r_history[-100:])
+    else:
+        mean_icm_r = np.nan
     if len(episode_rewards) > 100:
         best_mean_episode_reward = \
             max(best_mean_episode_reward, mean_episode_reward)
@@ -170,7 +181,7 @@ def log_progress(env, t, log_every_n_steps, lr, start_time, exploration, best_me
         logz.log_tabular("Num_Episodes",          len(episode_rewards))
         logz.log_tabular("Exploration_Epsilon",   exploration.value(t))
         logz.log_tabular("Adam_Learning_Rate",    lr)
-        logz.log_tabular("Last Intrinsic Reward", last_icm_r)
+        logz.log_tabular("Avg_IntrReward_Last_100_Episodes", mean_icm_r)
         logz.log_tabular("Elapsed_Time_Hours",    hours)
         logz.dump_tabular()
     return best_mean_episode_reward
@@ -214,9 +225,11 @@ def learn(env,
     replay_buffer_idx = None
 
     icm_module = None
+    icm_optimizer = None
     if icm:
         # we know ProcGen frames are all 64 x 64
-        icm_module = CuriosityModule((3 * frame_history_len, 64, 64), 32, 256, 4, num_actions, gamma=icm_gamma, beta=icm_beta, reward_multiplier=icm_eta)
+        icm_module = CuriosityModule((3 * frame_history_len, 64, 64), 32, 4, 256, 256, num_actions, device, gamma=icm_gamma, beta=icm_beta, reward_multiplier=icm_eta).to(device)
+        icm_optimizer = torch.optim.Adam(icm_module.parameters(), lr=1e-3)
 
     start_time = time.time()
     log_every_n_steps = 10000
@@ -224,16 +237,17 @@ def learn(env,
     t = 0
     num_param_updates = 0
     best_mean_episode_reward = float('-inf')
+    icm_r_history = []
 
     last_obs = env.reset()
 
     while True:
         last_obs = step_env(env, replay_buffer, num_actions, exploration, t, last_obs, t > learning_starts, policy, n, gamma, icm)
 
-        num_param_updates, last_icm_r = update_model(optimizer, t, replay_buffer, policy, target, gamma, grad_norm_clipping, batch_size, num_actions,
-                    learning_starts, learning_freq, num_param_updates, target_update_freq, double_q, pr, pr_beta, h, icm_module)
+        num_param_updates = update_model(optimizer, t, replay_buffer, policy, target, gamma, grad_norm_clipping, batch_size, num_actions,
+                    learning_starts, learning_freq, num_param_updates, target_update_freq, double_q, pr, pr_beta, h, icm_module, icm_optimizer, icm_r_history)
         t += 1
-        log_progress(env, t, log_every_n_steps, optimizer.param_groups[0]['lr'], start_time, exploration, best_mean_episode_reward, last_icm_r)
+        log_progress(env, t, log_every_n_steps, optimizer.param_groups[0]['lr'], start_time, exploration, best_mean_episode_reward, icm_r_history)
         if t > max_steps:
             print("\nt = {} exceeds max_steps = {}".format(t, max_steps))
             sys.exit()
