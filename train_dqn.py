@@ -33,11 +33,19 @@ class base_atari_model(nn.Module):
 
 def learn(env, args):
     # lr_schedule = ConstantSchedule(1e-4)
-    limit = max(int(args.num_steps/2), 2e6)
+    # limit = max(int(args.num_steps/2), 2e6)
+    # exploration_schedule = PiecewiseSchedule([
+    #         (0,     1.00),
+    #         (1e6,   0.10),
+    #         (limit, 0.01),
+    #     ], outside_value=0.01
+    # )    
+    three_fourths = 3*args.num_steps/4
+    seven_eigths = 7*args.num_steps/8
     exploration_schedule = PiecewiseSchedule([
             (0,     1.00),
-            (1e6,   0.10),
-            (limit, 0.01),
+            (three_fourths,   0.10),
+            (seven_eigths, 0.01),
         ], outside_value=0.01
     )
     dqn.learn(
