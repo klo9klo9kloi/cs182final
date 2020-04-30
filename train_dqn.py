@@ -99,6 +99,7 @@ if __name__ == "__main__":
     # parser.add_argument('--num_envs', type=int, default=1) # can be used for parallel agents?
     parser.add_argument('--root_logdir', default='./data_dqn')
     args = parser.parse_args()
+
     assert args.n >= 1, "n-step must be at least 1."
     assert args.env in ['coinrun', 'caveflyer', 'jumper', 'fruitbot']
     if args.seed is None:
