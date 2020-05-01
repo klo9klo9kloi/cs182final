@@ -69,8 +69,9 @@ def log_tabular(key, val):
     assert key not in G.log_current_row, "You already set %s this iteration. Maybe you forgot to call dump_tabular()"%key
     G.log_current_row[key] = val
 
-def save_params(params):
-    with open(osp.join(G.output_dir, "params.json"), 'w') as out:
+def save_params(params, output_dir):
+    import pdb; pdb.set_trace()
+    with open(osp.join(output_dir, "params.json"), 'w') as out:
         out.write(json.dumps(params, separators=(',\n','\t:\t'), sort_keys=True))
 
 def pickle_tf_vars():  
