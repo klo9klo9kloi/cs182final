@@ -138,7 +138,7 @@ def update_model(optimizer, t, replay_buffer, policy, target, gamma, clip, batch
     return num_param_updates
 
 
-def log_progress(env, t, log_every_n_steps, lr, start_time, exploration, best_mean_episode_reward):
+def log_progress(env, t, log_every_n_steps, lr, start_time, exploration, best_mean_episode_reward):    
     episode_rewards = get_wrapper_by_name(env, "Monitor").get_episode_rewards()
 
     if len(episode_rewards) > 0:
@@ -182,7 +182,7 @@ def learn(env,
          alpha=0.6,
          n=1,
          h=False):
-
+   
     num_actions = env.action_space.n
     policy = q_func_model(3 * frame_history_len, num_actions).to(device)
     target = q_func_model(3 * frame_history_len, num_actions).to(device)
