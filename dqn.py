@@ -31,7 +31,7 @@ def huber_loss(x, delta=1.0):
     )
 
 
-def step_env(env, replay_buffer, num_actions, exploration_schedule, t, last_obs, model_initialized, policy, n, gamma, icm):
+def step_env(env, replay_buffer, num_actions, exploration_schedule, t, last_obs, model_initialized, policy, n, gamma):
     frame_idx = replay_buffer.store_frame(last_obs)
     encoded_obs = replay_buffer.encode_recent_observation()
     explor_prob = exploration_schedule.value(t)
@@ -42,7 +42,7 @@ def step_env(env, replay_buffer, num_actions, exploration_schedule, t, last_obs,
     reward = 0
 
     for i in range(n):
-        if not model_initialized or (not icm and np.random.random() < explor_prob):
+        if not model_initialized or np.random.random() < explor_prob:
             action = np.random.randint(num_actions)
         else:
             with torch.no_grad():
@@ -242,7 +242,7 @@ def learn(env,
     last_obs = env.reset()
 
     while True:
-        last_obs = step_env(env, replay_buffer, num_actions, exploration, t, last_obs, t > learning_starts, policy, n, gamma, icm)
+        last_obs = step_env(env, replay_buffer, num_actions, exploration, t, last_obs, t > learning_starts, policy, n, gamma)
 
         num_param_updates = update_model(optimizer, t, replay_buffer, policy, target, gamma, grad_norm_clipping, batch_size, num_actions,
                     learning_starts, learning_freq, num_param_updates, target_update_freq, double_q, pr, pr_beta, h, icm_module, icm_optimizer, icm_r_history)
