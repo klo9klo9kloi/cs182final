@@ -52,7 +52,7 @@ def learn(env, args):
         env=env,
         q_func_model=base_atari_model,
         exploration=exploration_schedule,
-        replay_buffer_size=1000000,
+        replay_buffer_size=500000,
         batch_size=32,
         gamma=0.99,
         learning_starts=50000,
