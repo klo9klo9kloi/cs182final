@@ -245,10 +245,11 @@ class ReplayBuffer(object):
         assert self.num_in_buffer > 0
         return self._encode_observation((self.next_idx - 1) % self.size)
 
-    # IMPORTANT: this breaks if the last index in the buffer is sampled and you try to encode the next obs state
-    # e.g. replay_buffer_size=100, if you sample 99 and then try to encode 100, there currently no checks 
-    # in the code below and it returns self.obs[101-n:101] which is only n-1 states and not n states.
-    # hasn't been a problem for assignment 4 before because replay buffer size has always been greater than training 
+    # TEMP FIXED: this used to break if the last index in the buffer is sampled and then you try to 
+    # encode the next obs state e.g. replay_buffer_size=100, if you sample 99 and then try to encode 100, 
+    # there are currently no checks in the code below that fill in the missing context, so it returns self.obs[101-n:101] 
+    # which is only n-1 states and not n states.
+    # It hasn't been a problem for assignment 4 before because replay buffer size has always been greater than training 
     # timestep budget, and also the sampling method is hardcoded to only return up to index size-2. p
     # probably not a problem for procgen though since a replay buffer of size 1M is still
     # computationally feasible, but just a wierd discovery.
@@ -259,19 +260,39 @@ class ReplayBuffer(object):
         # state, in which case we just directly return the latest RAM.
         if len(self.obs.shape) == 2:
             return self.obs[end_idx-1]
-        # if there weren't enough frames ever in the buffer for context
+        # if our buffer is still filling up so we can't sample from end
         if start_idx < 0 and self.num_in_buffer != self.size:
             start_idx = 0
         for idx in range(start_idx, end_idx - 1):
             if self.done[idx % self.size]:
                 start_idx = idx + 1
         missing_context = self.frame_history_len - (end_idx - start_idx)
-        # if zero padding is needed for missing context
-        # or we are on the boundry of the buffer
-        if start_idx < 0 or missing_context > 0:
+
+        # CASE 1: buffer still filling up and sampled an index near left boundary of buffer OR
+        # we sampled an index near a done boundary
+        # -> pad missing context with zeros
+        if missing_context > 0:
             frames = [np.zeros_like(self.obs[0]) for _ in range(missing_context)]
             for idx in range(start_idx, end_idx):
                 frames.append(self.obs[idx % self.size])
+            return np.concatenate(frames, 2)
+        # CASE 2: buffer is full and sampled an index near left boundary of buffer
+        # -> pad from end of buffer
+        elif start_idx < 0 and self.num_in_buffer == self.size:
+            # print('case 2')
+            frames = [self.obs[idx] for idx in range(start_idx, 0)] + [self.obs[idx] for idx in range(end_idx)]
+            return np.concatenate(frames, 2)
+        # CASE 3: buffer is full and sampled and index near right boundary of buffer
+        # and we already looped around enough times
+        # -> pad from start of buffer
+        elif end_idx > self.size and self.next_idx >= (end_idx - self.size) and self.num_in_buffer == self.size:
+            # print('case 3')
+            frames = [self.obs[idx] for idx in range(start_idx, self.size)] + [self.obs[idx] for idx in range(end_idx-self.size)]
+            return np.concatenate(frames, 2)
+        # CASE 4: ^ but we haven't looped around enough times yet
+        # -> pad end with zeros
+        elif end_idx > self.size: 
+            frames = [self.obs[idx] for idx in range(start_idx, self.size)] + [np.zeros_like(self.obs[0]) for _ in range(end_idx-self.size)]
             return np.concatenate(frames, 2)
         else:
             # this optimization has potential to saves about 30% compute time \o/
