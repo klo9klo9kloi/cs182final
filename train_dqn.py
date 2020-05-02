@@ -27,7 +27,7 @@ def learn(env, args):
     )
     dqn.learn(
         env=env,
-        q_func_model=base_atari_model,
+        q_func_model=model_with_glimpse if args.attention else base_atari_model,
         exploration=exploration_schedule,
         replay_buffer_size=500000,
         batch_size=32,
@@ -69,7 +69,7 @@ def get_env(args):
     return wrappers.Monitor(env, expt_dir, force=True)
 
 if __name__ == "__main__":
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
     
     parser = argparse.ArgumentParser()
     parser.add_argument('env', type=str)
@@ -85,6 +85,7 @@ if __name__ == "__main__":
     parser.add_argument('--h', action='store_true', default=False)
     # parser.add_argument('--num_envs', type=int, default=1) # can be used for parallel agents?
     parser.add_argument('--root_logdir', default='./data_dqn')
+    parser.add_argument('--attention', action='store_true', default=False)
     args = parser.parse_args()
 
     assert args.n >= 1, "n-step must be at least 1."
@@ -97,6 +98,8 @@ if __name__ == "__main__":
         exp_name = 'double-dqn'
     if args.pr:
         exp_name += '_pr'
+    if args.attention:
+        exp_name += '_attention'
 
     if not(os.path.exists(args.root_logdir)):
         os.makedirs(args.root_logdir)

@@ -181,7 +181,8 @@ def learn(env,
          beta=0.4,
          alpha=0.6,
          n=1,
-         h=False):
+         h=False,
+         attention=False):
    
     num_actions = env.action_space.n
     policy = q_func_model(3 * frame_history_len, num_actions).to(device)
