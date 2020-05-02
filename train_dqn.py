@@ -3,33 +3,10 @@ import logz
 from gym import wrappers
 import numpy as np
 import torch
-import torchvision
-import torch.nn as nn
 import dqn
 from dqn_utils import *
+from models.models import *
 # from procgen import ProcgenEnv
-
-class base_atari_model(nn.Module):
-    def __init__(self, input_channels, action_dim):
-        super(base_atari_model, self).__init__()
-        self.convnet = nn.Sequential(
-            nn.Conv2d(input_channels, 32, 8, stride=4),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(32, 64, 4, stride=2),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(64, 64, 3, stride=1),
-            nn.ReLU(inplace=True)
-        )
-        self.action_value = nn.Sequential(
-            nn.Linear(64*4*4, 512),
-            nn.ReLU(inplace=True),
-            nn.Linear(512, action_dim)
-        )
-    def forward(self, x):
-        x = self.convnet(x)
-        x = x.reshape(x.shape[0], -1)
-        x = self.action_value(x)
-        return x
 
 def learn(env, args):
     # lr_schedule = ConstantSchedule(1e-4)
