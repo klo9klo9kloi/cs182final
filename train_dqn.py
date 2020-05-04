@@ -92,8 +92,6 @@ def get_env(args):
     return wrappers.Monitor(env, expt_dir, force=True)
 
 if __name__ == "__main__":
-    import pdb; pdb.set_trace()
-    
     parser = argparse.ArgumentParser()
     parser.add_argument('env', type=str)
     parser.add_argument('--seed', type=int, default=None)

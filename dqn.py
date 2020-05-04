@@ -191,7 +191,6 @@ def learn(env,
 
     optimizer = torch.optim.Adam(policy.parameters(), lr=1e-4)
     if pr:
-        print("hello?")
         replay_buffer = PrioritizedReplayBuffer(replay_buffer_size, frame_history_len, alpha)
     else:
         replay_buffer = ReplayBuffer(replay_buffer_size, frame_history_len)
