@@ -293,6 +293,7 @@ class ReplayBuffer(object):
         idx: int
             Index at which the frame is stored. To be used for `store_effect` later.
         """
+        self.size = int(self.size)
         if self.obs is None:
             self.obs    = np.empty([self.size] + list(frame.shape), dtype=np.float32 if self.cartpole else np.uint8)
             self.action = np.empty([self.size],                     dtype=np.int32)
