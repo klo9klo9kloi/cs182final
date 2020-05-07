@@ -1,12 +1,14 @@
 import os, random, time, argparse, gym, sys
+import json
+import os.path as osp, shutil, time, atexit, os, subprocess
 import logz
-from gym import wrappers
 import numpy as np
 import torch
 import torchvision
 import torch.nn as nn
 import dqn
 from dqn_utils import *
+from gym import wrappers
 # from procgen import ProcgenEnv
 
 class base_atari_model(nn.Module):
@@ -93,7 +95,6 @@ def get_env(args):
     return wrappers.Monitor(env, expt_dir, force=True)
 
 if __name__ == "__main__":
-    import pdb; pdb.set_trace()
     parser = argparse.ArgumentParser()
     parser.add_argument('env', type=str)
     parser.add_argument('--seed', type=int, default=None)
@@ -145,8 +146,7 @@ if __name__ == "__main__":
         #print("Run with seed " + str(seed) + ": " + str(dqn.step_best(env, policy)))
         result[seed] = dqn.step_best(env, policy)
         env.close()
-    import json
-    import os.path as osp, shutil, time, atexit, os, subprocess
+    
     with open(osp.join(logdir, "testing_results.json"), 'w') as out:
         out.write(json.dumps(result, separators=(',\n','\t:\t'), sort_keys=True))
         
