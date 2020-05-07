@@ -143,10 +143,10 @@ if __name__ == "__main__":
         env = gym.make("procgen:procgen-" + args.env + "-v0", num_levels=1, start_level=seed, distribution_mode='easy')
         env.seed(seed)
         #print("Run with seed " + str(seed) + ": " + str(dqn.step_best(env, policy)))
-        resuly[seed] = dqn.step_best(env, policy)
+        result[seed] = dqn.step_best(env, policy)
         env.close()
     import json
     import os.path as osp, shutil, time, atexit, os, subprocess
     with open(osp.join(logdir, "testing_results.json"), 'w') as out:
-        out.write(json.dumps(params, separators=(',\n','\t:\t'), sort_keys=True))
+        out.write(json.dumps(result, separators=(',\n','\t:\t'), sort_keys=True))
         
