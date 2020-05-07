@@ -139,7 +139,6 @@ if __name__ == "__main__":
     args.num_levels = 1
     for i in range(args.run_test_num):
         seed = random.randint(0, 999999)
-        args.start_seed = seed
-        env = get_env(args)
+        env = gym.make("procgen:procgen-" + args.env + "-v0", num_levels=1, start_level=args.seed, distribution_mode='easy')
         env.seed(seed)
         print("Run with seed " + str(seed) + ": " + str(dqn.step_best(env, policy)))
