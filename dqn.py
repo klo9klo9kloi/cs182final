@@ -46,7 +46,7 @@ def step_best(env, policy, frame_history_len = 4):
     return total_reward
 
 def encode_like_obs(new_obs, previous_encoded_obs, frame_history_len = 4):
-    return np.append(previous_encoded_obs[:, :, frame_history_len - 1:], new_obs, 2)
+    return np.append(previous_encoded_obs[:, :, 3:], new_obs, 2)
 
 def step_env(env, replay_buffer, num_actions, exploration_schedule, t, last_obs, model_initialized, policy, n, gamma):
     frame_idx = replay_buffer.store_frame(last_obs)
