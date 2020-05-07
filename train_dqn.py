@@ -135,7 +135,7 @@ if __name__ == "__main__":
     logz.save_params(vars(args), args.logdir)
 
     env = get_env(args)
-    model, policy = learn(env, args)
+    policy = learn(env, args)
     args.num_levels = 1
     for i in range(args.run_test_num):
         seed = random.randint(0, 999999)
