@@ -236,11 +236,6 @@ def learn(env,
         log_progress(env, t, log_every_n_steps, optimizer.param_groups[0]['lr'], start_time, exploration, best_mean_episode_reward)
         if t > max_steps:
             print("\nt = {} exceeds max_steps = {}".format(t, max_steps))
-<<<<<<< 5479d7e003c39a2bc85023d41899eec208a3a5cc
             logz.save_model_params(policy, target)
-            sys.exit()
-=======
-            #sys.exit()
             break
     return policy
->>>>>>> testing
