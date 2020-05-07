@@ -36,17 +36,17 @@ def step_best(env, policy, frame_history_len = 4):
     while (not done):
         with torch.no_grad():
             policy.eval()
-            encoded_obs = torchvision.transforms.functional.to_tensor(encoded_obs)
-            encoded_obs = encoded_obs.reshape([1] + list(encoded_obs.shape)).to(device)
-            q_vals = policy(encoded_obs)
+            encoded_obs1 = torchvision.transforms.functional.to_tensor(encoded_obs)
+            encoded_obs1 = encoded_obs1.reshape([1] + list(encoded_obs1.shape)).to(device)
+            q_vals = policy(encoded_obs1)
         action = np.argmax(q_vals.cpu().numpy())
         obs, rew, done, info = env.step(action)
-        encoded_obs = encode_like_obs(obs, encoded_obs)
+        encoded_obs = encode_like_obs(obs, encoded_obs, frame_history_len)
         total_reward += rew
     return total_reward
 
-def encode_like_obs(new_obs, previous_encoded_obs):
-    return np.append(previous_encoded_obs[:, :, 3:], new_obs, 2)
+def encode_like_obs(new_obs, previous_encoded_obs, frame_history_len = 4):
+    return np.append(previous_encoded_obs[:, :, frame_history_len - 1:], new_obs, 2)
 
 def step_env(env, replay_buffer, num_actions, exploration_schedule, t, last_obs, model_initialized, policy, n, gamma):
     frame_idx = replay_buffer.store_frame(last_obs)

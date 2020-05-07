@@ -93,11 +93,7 @@ def get_env(args):
     return wrappers.Monitor(env, expt_dir, force=True)
 
 if __name__ == "__main__":
-<<<<<<< 5479d7e003c39a2bc85023d41899eec208a3a5cc
-=======
     import pdb; pdb.set_trace()
-
->>>>>>> testing
     parser = argparse.ArgumentParser()
     parser.add_argument('env', type=str)
     parser.add_argument('--seed', type=int, default=None)
@@ -140,8 +136,11 @@ if __name__ == "__main__":
 
     env = get_env(args)
     model, policy = learn(env, args)
-    for i in range(args.num_test_num):
-        env = get_env(args)
+    args.num_levels = 1
+    for i in range(args.run_test_num):
         seed = random.randint(0, 9999)
+        args.start_seed = seed
+        env = get_env(args)
+        set_global_seeds(args.seed)
         env.seed(seed)
         print("Run with seed " + str(seed) + ": " + str(dqn.step_best(env, policy)))
