@@ -141,6 +141,5 @@ if __name__ == "__main__":
         seed = random.randint(0, 999999)
         args.start_seed = seed
         env = get_env(args)
-        set_global_seeds(args.seed)
         env.seed(seed)
         print("Run with seed " + str(seed) + ": " + str(dqn.step_best(env, policy)))
