@@ -54,7 +54,7 @@ def learn(env, args):
         env=env,
         q_func_model=base_atari_model,
         exploration=exploration_schedule,
-        replay_buffer_size=500000,
+        replay_buffer_size=args.replay_buffer_size,
         batch_size=32,
         gamma=0.99,
         learning_starts=50000,
@@ -107,6 +107,7 @@ if __name__ == "__main__":
     parser.add_argument('--alpha', type=float, default=0.6)
     parser.add_argument('--n', type = int, default = 1)
     parser.add_argument('--h', action='store_true', default=False)
+    parser.add_argument('--replay_buffer_size', default=1000000)
     # parser.add_argument('--num_envs', type=int, default=1) # can be used for parallel agents?
     parser.add_argument('--root_logdir', default='./data_dqn')
     parser.add_argument('--run_test_num', type=int, default=0)
