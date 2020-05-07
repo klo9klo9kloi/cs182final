@@ -25,6 +25,28 @@ def huber_loss(x, delta=1.0):
         delta * (torch.abs(x) - 0.5 * delta)
     )
 
+def step_best(env, policy, frame_history_len = 4):
+    # Uses the given policy to step the env until done. Used to evaluate the trained policy.
+    obs = env.reset()
+    frames = [np.zeros_like(obs) for _ in range(frame_history_len - 1)]
+    frames.append(obs)
+    encoded_obs = np.concatenate(frames, 2)
+    done = False
+    total_reward = 0
+    while (not done):
+        with torch.no_grad():
+            policy.eval()
+            encoded_obs = torchvision.transforms.functional.to_tensor(encoded_obs)
+            encoded_obs = encoded_obs.reshape([1] + list(encoded_obs.shape)).to(device)
+            q_vals = policy(encoded_obs)
+        action = np.argmax(q_vals.cpu().numpy())
+        obs, rew, done, info = env.step(action)
+        encoded_obs = encode_like_obs(obs, encoded_obs)
+        total_reward += rew
+    return total_reward
+
+def encode_like_obs(new_obs, previous_encoded_obs):
+    return np.append(previous_encoded_obs[:, :, 3:], new_obs, 2)
 
 def step_env(env, replay_buffer, num_actions, exploration_schedule, t, last_obs, model_initialized, policy, n, gamma):
     frame_idx = replay_buffer.store_frame(last_obs)
@@ -138,7 +160,7 @@ def update_model(optimizer, t, replay_buffer, policy, target, gamma, clip, batch
     return num_param_updates
 
 
-def log_progress(env, t, log_every_n_steps, lr, start_time, exploration, best_mean_episode_reward):    
+def log_progress(env, t, log_every_n_steps, lr, start_time, exploration, best_mean_episode_reward):
     episode_rewards = get_wrapper_by_name(env, "Monitor").get_episode_rewards()
 
     if len(episode_rewards) > 0:
@@ -182,7 +204,7 @@ def learn(env,
          alpha=0.6,
          n=1,
          h=False):
-   
+
     num_actions = env.action_space.n
     policy = q_func_model(3 * frame_history_len, num_actions).to(device)
     target = q_func_model(3 * frame_history_len, num_actions).to(device)
@@ -214,5 +236,11 @@ def learn(env,
         log_progress(env, t, log_every_n_steps, optimizer.param_groups[0]['lr'], start_time, exploration, best_mean_episode_reward)
         if t > max_steps:
             print("\nt = {} exceeds max_steps = {}".format(t, max_steps))
+<<<<<<< 5479d7e003c39a2bc85023d41899eec208a3a5cc
             logz.save_model_params(policy, target)
             sys.exit()
+=======
+            #sys.exit()
+            break
+    return policy
+>>>>>>> testing

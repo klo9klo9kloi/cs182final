@@ -39,7 +39,7 @@ def learn(env, args):
     #         (1e6,   0.10),
     #         (limit, 0.01),
     #     ], outside_value=0.01
-    # )    
+    # )
     three_fourths = 3*args.num_steps/4
     seven_eigths = 7*args.num_steps/8
     exploration_schedule = PiecewiseSchedule([
@@ -48,7 +48,7 @@ def learn(env, args):
             (seven_eigths, 0.01),
         ], outside_value=0.01
     )
-    dqn.learn(
+    policy = dqn.learn(
         env=env,
         q_func_model=base_atari_model,
         exploration=exploration_schedule,
@@ -70,6 +70,7 @@ def learn(env, args):
         h=args.h
     )
     env.close()
+    return policy
 
 
 def set_global_seeds(i):
@@ -92,6 +93,11 @@ def get_env(args):
     return wrappers.Monitor(env, expt_dir, force=True)
 
 if __name__ == "__main__":
+<<<<<<< 5479d7e003c39a2bc85023d41899eec208a3a5cc
+=======
+    import pdb; pdb.set_trace()
+
+>>>>>>> testing
     parser = argparse.ArgumentParser()
     parser.add_argument('env', type=str)
     parser.add_argument('--seed', type=int, default=None)
@@ -106,6 +112,7 @@ if __name__ == "__main__":
     parser.add_argument('--h', action='store_true', default=False)
     # parser.add_argument('--num_envs', type=int, default=1) # can be used for parallel agents?
     parser.add_argument('--root_logdir', default='./data_dqn')
+    parser.add_argument('--run_test_num', type=int, default=0)
     args = parser.parse_args()
 
     assert args.n >= 1, "n-step must be at least 1."
@@ -119,14 +126,22 @@ if __name__ == "__main__":
     if args.pr:
         exp_name += '_pr'
 
+    if args.n:
+        print("warning: do not use --n.")
+
     if not(os.path.exists(args.root_logdir)):
         os.makedirs(args.root_logdir)
     logdir = exp_name+ '_' +args.env+ '_' +time.strftime("%d-%m-%Y_%H-%M-%S")
     logdir = os.path.join(args.root_logdir, logdir)
     logz.configure_output_dir(logdir)
     args.logdir = logdir
-    
+
     logz.save_params(vars(args), args.logdir)
 
     env = get_env(args)
-    learn(env, args)
+    model, policy = learn(env, args)
+    for i in range(args.num_test_num):
+        env = get_env(args)
+        seed = random.randint(0, 9999)
+        env.seed(seed)
+        print("Run with seed " + str(seed) + ": " + str(dqn.step_best(env, policy)))
