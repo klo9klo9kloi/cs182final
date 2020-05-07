@@ -138,7 +138,7 @@ if __name__ == "__main__":
     model, policy = learn(env, args)
     args.num_levels = 1
     for i in range(args.run_test_num):
-        seed = random.randint(0, 9999)
+        seed = random.randint(0, 999999)
         args.start_seed = seed
         env = get_env(args)
         set_global_seeds(args.seed)
