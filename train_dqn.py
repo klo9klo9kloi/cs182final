@@ -136,9 +136,17 @@ if __name__ == "__main__":
 
     env = get_env(args)
     policy = learn(env, args)
-    args.num_levels = 1
+    
+    result = {}
     for i in range(args.run_test_num):
         seed = random.randint(0, 999999)
-        env = gym.make("procgen:procgen-" + args.env + "-v0", num_levels=1, start_level=args.seed, distribution_mode='easy')
+        env = gym.make("procgen:procgen-" + args.env + "-v0", num_levels=1, start_level=seed, distribution_mode='easy')
         env.seed(seed)
-        print("Run with seed " + str(seed) + ": " + str(dqn.step_best(env, policy)))
+        #print("Run with seed " + str(seed) + ": " + str(dqn.step_best(env, policy)))
+        env.close()
+        resuly[seed] = dqn.step_best(env, policy)
+    import json
+    import os.path as osp, shutil, time, atexit, os, subprocess
+    with open(osp.join(logdir, "testing_results.json"), 'w') as out:
+        out.write(json.dumps(params, separators=(',\n','\t:\t'), sort_keys=True))
+        
