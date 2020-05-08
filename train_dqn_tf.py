@@ -14,11 +14,11 @@ def atari_model(img_in, num_actions, scope, reuse=False):
         out = img_in
         with tf.variable_scope("convnet"):
             out = layers.convolution2d(out, num_outputs=32,
-                    kernel_size=8, stride=4, activation_fn=tf.nn.relu)
+                    kernel_size=8, stride=4, activation_fn=tf.nn.relu, padding="VALID")
             out = layers.convolution2d(out, num_outputs=64,
-                    kernel_size=4, stride=2, activation_fn=tf.nn.relu)
+                    kernel_size=4, stride=2, activation_fn=tf.nn.relu, padding="VALID")
             out = layers.convolution2d(out, num_outputs=64,
-                    kernel_size=3, stride=1, activation_fn=tf.nn.relu)
+                    kernel_size=3, stride=1, activation_fn=tf.nn.relu, padding="VALID")
         out = layers.flatten(out)
         with tf.variable_scope("action_value"):
             out = layers.fully_connected(out, num_outputs=512,
@@ -26,21 +26,6 @@ def atari_model(img_in, num_actions, scope, reuse=False):
             out = layers.fully_connected(out, num_outputs=num_actions,
                     activation_fn=None)
         return out
-
-
-def cartpole_model(x_input, num_actions, scope, reuse=False):
-    """For CartPole we'll use a smaller network.
-    """
-    with tf.variable_scope(scope, reuse=reuse):
-        out = x_input
-        out = layers.fully_connected(out, num_outputs=32,
-                activation_fn=tf.nn.tanh)
-        out = layers.fully_connected(out, num_outputs=32,
-                activation_fn=tf.nn.tanh)
-        out = layers.fully_connected(out, num_outputs=num_actions,
-                activation_fn=None)
-        return out
-
 
 def learn(env, session, args):
     lr_schedule = ConstantSchedule(1e-4)
@@ -63,7 +48,7 @@ def learn(env, session, args):
         optimizer_spec=optimizer,
         session=session,
         exploration=exploration_schedule,
-        replay_buffer_size=500000,
+        replay_buffer_size=args.replay_buffer_size,
         batch_size=32,
         gamma=0.99,
         learning_starts=50000,
@@ -122,6 +107,7 @@ if __name__ == "__main__":
     parser.add_argument('--num_levels', type=int, default=50)
     parser.add_argument('--start_seed', type=int, default=0)
     parser.add_argument('--root_logdir', default='./data_dqn')
+    parser.add_argument('--replay_buffer_size', default=1000000)
     args = parser.parse_args()
 
     assert args.env in ['coinrun', 'caveflyer', 'jumper', 'fruitbot']

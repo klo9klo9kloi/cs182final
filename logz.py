@@ -18,6 +18,7 @@ A['EpRewMean']
 import os.path as osp, shutil, time, atexit, os, subprocess
 import pickle
 import torch
+import tensorflow as tf
 
 color2num = dict(
     gray=30,
@@ -77,14 +78,14 @@ def save_model_params(policy, target):
     torch.save(policy.cpu().state_dict(), G.output_dir + '/policy.pth')
     torch.save(target.cpu().state_dict(), G.output_dir + '/target.pth')
 
-# def pickle_tf_vars():  
-#     """
-#     Saves tensorflow variables
-#     Requires them to be initialized first, also a default session must exist
-#     """
-#     _dict = {v.name : v.eval() for v in tf.global_variables()}
-#     with open(osp.join(G.output_dir, "vars.pkl"), 'wb') as f:
-#         pickle.dump(_dict, f)
+def pickle_tf_vars():  
+    """
+    Saves tensorflow variables
+    Requires them to be initialized first, also a default session must exist
+    """
+    _dict = {v.name : v.eval() for v in tf.global_variables()}
+    with open(osp.join(G.output_dir, "vars.pkl"), 'wb') as f:
+        pickle.dump(_dict, f)
     
 
 def dump_tabular():
