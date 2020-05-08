@@ -15,7 +15,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     assert args.env in ['coinrun', 'caveflyer', 'jumper', 'fruitbot']
+    env = gym.make("procgen:procgen-" + args.env + "-v0", num_levels=1, distribution_mode='easy')
     num_actions = env.action_space.n
+    env.close()
     policy = base_atari_model(args.frame_history_len * 3, num_actions)
     load_path = osp.join(args.logdir, 'policy.pth')
 
