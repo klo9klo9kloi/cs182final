@@ -1,9 +1,0 @@
-{"double_q"	:	false,
-"env"	:	"fruitbot",
-"logdir"	:	"./data_dqn/dqn_fruitbot_11-05-2020_05-51-28",
-"num_levels"	:	50,
-"num_steps"	:	4000000.0,
-"replay_buffer_size"	:	1000000,
-"root_logdir"	:	"./data_dqn",
-"seed"	:	6377,
-"start_seed"	:	0}
