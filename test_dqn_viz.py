@@ -24,6 +24,7 @@ if __name__ == "__main__":
     parser.add_argument('--start_seed', type=int, default=500)
     parser.add_argument('--seed', type=int, default=-1)
     parser.add_argument('--animate', action='store_true', default=False)
+    parser.add_argument('--ymax', type=int, default=10)
     args = parser.parse_args()
 
     assert args.env in ['coinrun', 'caveflyer', 'jumper', 'fruitbot']
@@ -64,7 +65,7 @@ if __name__ == "__main__":
 
     policy.eval()
     i = 0
-    y_max = 5
+    y_max = args.ymax
     while (not done):
         policy.zero_grad()
         encoded_obs1 = torchvision.transforms.functional.to_tensor(encoded_obs)
