@@ -14,11 +14,11 @@ def atari_model(img_in, num_actions, scope, reuse=False):
         out = img_in
         with tf.variable_scope("convnet"):
             out = layers.convolution2d(out, num_outputs=32,
-                    kernel_size=8, stride=4, activation_fn=tf.nn.relu)
+                    kernel_size=8, stride=4, activation_fn=tf.nn.relu, padding="VALID")
             out = layers.convolution2d(out, num_outputs=64,
-                    kernel_size=4, stride=2, activation_fn=tf.nn.relu)
+                    kernel_size=4, stride=2, activation_fn=tf.nn.relu, padding="VALID")
             out = layers.convolution2d(out, num_outputs=64,
-                    kernel_size=3, stride=1, activation_fn=tf.nn.relu)
+                    kernel_size=3, stride=1, activation_fn=tf.nn.relu, padding="VALID")
         out = layers.flatten(out)
         with tf.variable_scope("action_value"):
             out = layers.fully_connected(out, num_outputs=512,
@@ -27,88 +27,39 @@ def atari_model(img_in, num_actions, scope, reuse=False):
                     activation_fn=None)
         return out
 
-
-def cartpole_model(x_input, num_actions, scope, reuse=False):
-    """For CartPole we'll use a smaller network.
-    """
-    with tf.variable_scope(scope, reuse=reuse):
-        out = x_input
-        out = layers.fully_connected(out, num_outputs=32,
-                activation_fn=tf.nn.tanh)
-        out = layers.fully_connected(out, num_outputs=32,
-                activation_fn=tf.nn.tanh)
-        out = layers.fully_connected(out, num_outputs=num_actions,
-                activation_fn=None)
-        return out
-
-
 def learn(env, session, args):
-    if args.env == 'PongNoFrameskip-v4' or args.env == 'coinrun':
-        lr_schedule = ConstantSchedule(1e-4)
-        optimizer = dqn_tf.OptimizerSpec(
-            constructor=tf.train.AdamOptimizer,
-            kwargs=dict(epsilon=1e-4),
-            lr_schedule=lr_schedule
-        )
-        limit = max(int(args.num_steps/2), 2e6)
-        exploration_schedule = PiecewiseSchedule([
-                (0,     1.00),
-                (1e6,   0.10),
-                (limit, 0.01),
-            ], outside_value=0.01
-        )
-        dqn_tf.learn(
-            env=env,
-            q_func=atari_model,
-            optimizer_spec=optimizer,
-            session=session,
-            exploration=exploration_schedule,
-            replay_buffer_size=1000000,
-            batch_size=32,
-            gamma=0.99,
-            learning_starts=50000,
-            learning_freq=4,
-            frame_history_len=4,
-            target_update_freq=10000,
-            grad_norm_clipping=10,
-            double_q=args.double_q,
-            logdir=args.logdir,
-            max_steps=args.num_steps
-        )
-    elif args.env == 'CartPole-v0':
-        lr_schedule = ConstantSchedule(5e-4)
-        optimizer = dqn_tf.OptimizerSpec(
-            constructor=tf.train.AdamOptimizer,
-            kwargs=dict(epsilon=1e-4),
-            lr_schedule=lr_schedule
-        )
-        exploration_schedule = PiecewiseSchedule([
-                (0,   1.00),
-                (5e4, 0.10),
-                (1e5, 0.02),
-            ], outside_value=0.02
-        )
-        dqn_tf.learn(
-            env=env,
-            q_func=cartpole_model,
-            optimizer_spec=optimizer,
-            session=session,
-            exploration=exploration_schedule,
-            replay_buffer_size=10000,
-            batch_size=100,
-            gamma=0.99,
-            learning_starts=1000,
-            learning_freq=4,
-            frame_history_len=1,
-            target_update_freq=500,
-            grad_norm_clipping=10,
-            double_q=args.double_q,
-            logdir=args.logdir,
-            max_steps=args.num_steps,
-            cartpole=True
-        )
-    else:
-        raise ValueError(args.env)
+    lr_schedule = ConstantSchedule(1e-4)
+    optimizer = dqn_tf.OptimizerSpec(
+        constructor=tf.train.AdamOptimizer,
+        kwargs=dict(epsilon=1e-4),
+        lr_schedule=lr_schedule
+    )
+    three_fourths = 3*args.num_steps/4
+    seven_eigths = 7*args.num_steps/8
+    exploration_schedule = PiecewiseSchedule([
+            (0,     1.00),
+            (three_fourths,   0.10),
+            (seven_eigths, 0.01),
+        ], outside_value=0.01
+    )
+    dqn_tf.learn(
+        env=env,
+        q_func=atari_model,
+        optimizer_spec=optimizer,
+        session=session,
+        exploration=exploration_schedule,
+        replay_buffer_size=args.replay_buffer_size,
+        batch_size=32,
+        gamma=0.99,
+        learning_starts=50000,
+        learning_freq=4,
+        frame_history_len=4,
+        target_update_freq=10000,
+        grad_norm_clipping=10,
+        double_q=args.double_q,
+        logdir=args.logdir,
+        max_steps=args.num_steps
+    )
     env.close()
 
 
@@ -140,37 +91,10 @@ def get_session():
 
 
 def get_env(args):
-    if args.env == 'CartPole-v0':
-        env = gym.make(args.env)
-        set_global_seeds(args.seed)
-        env.seed(args.seed)
-        expt_dir = os.path.join(args.logdir, "gym")
-        env = wrappers.Monitor(env, expt_dir, force=True, video_callable=False)
-    elif args.env == 'PongNoFrameskip-v4':
-        # Atari requires some environment wrapping; `print(env)` will show:
-        #
-        # <ClippedRewardsWrapper<ProcessFrame84<FireResetEnv ...
-        #     <MaxAndSkipEnv<NoopResetEnv<EpisodicLifeEnv<Monitor ...
-        #         <TimeLimit<AtariEnv<PongNoFrameskip-v4>>>>>>>>>>
-        #
-        # These are chained so that (for example) calling `step` on the outer
-        # most wrapper moves back up the hierarchy to the AtariEnv, which
-        # returns the output that moves in reverse and goes to the outer env.
-        #
-        # We also wrap around a Monitor, and information about episodes and
-        # videos can be found in `expt_dir`, which you may find useful. See:
-        # https://github.com/openai/gym/blob/master/gym/wrappers/monitor.py
-        env = gym.make(args.env)
-        set_global_seeds(args.seed)
-        env.seed(args.seed)
-        expt_dir = os.path.join(args.logdir, "gym")
-        env = wrappers.Monitor(env, expt_dir, force=True)
-        env = wrap_deepmind(env)
-    elif args.env == 'coinrun':
-        env = gym.make("procgen:procgen-" + args.env + "-v0", num_levels=args.num_levels, start_level=args.start_seed, distribution_mode='easy')
-        set_global_seeds(args.seed)
-        expt_dir = os.path.join(args.logdir, "procgen")
-        env =  wrappers.Monitor(env, expt_dir, force=True)
+    env = gym.make("procgen:procgen-" + args.env + "-v0", num_levels=args.num_levels, start_level=args.start_seed, distribution_mode='easy')
+    set_global_seeds(args.seed)
+    expt_dir = os.path.join(args.logdir, "procgen")
+    env =  wrappers.Monitor(env, expt_dir, force=True)
     return env
 
 
@@ -182,9 +106,11 @@ if __name__ == "__main__":
     parser.add_argument('--double_q', action='store_true', default=False)
     parser.add_argument('--num_levels', type=int, default=50)
     parser.add_argument('--start_seed', type=int, default=0)
+    parser.add_argument('--root_logdir', default='./data_dqn')
+    parser.add_argument('--replay_buffer_size', default=1000000)
     args = parser.parse_args()
 
-    assert args.env in ['PongNoFrameskip-v4', 'CartPole-v0', 'coinrun']
+    assert args.env in ['coinrun', 'caveflyer', 'jumper', 'fruitbot']
     if args.seed is None:
         args.seed = random.randint(0, 9999)
     print('random seed = {}'.format(args.seed))
@@ -192,12 +118,14 @@ if __name__ == "__main__":
     if args.double_q:
         exp_name = 'double-dqn'
 
-    if not(os.path.exists('data_dqn')):
-        os.makedirs('data_dqn')
+    if not(os.path.exists(args.root_logdir)):
+        os.makedirs(args.root_logdir)
     logdir = exp_name+ '_' +args.env+ '_' +time.strftime("%d-%m-%Y_%H-%M-%S")
-    logdir = os.path.join('data_dqn', logdir)
+    logdir = os.path.join(args.root_logdir, logdir)
     logz.configure_output_dir(logdir)
     args.logdir = logdir
+
+    logz.save_params(vars(args), args.logdir)
 
     env = get_env(args)
     session = get_session()
