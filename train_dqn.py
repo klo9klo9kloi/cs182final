@@ -153,7 +153,6 @@ if __name__ == "__main__":
     logz.save_params(vars(args), args.logdir)
 
     env = get_env(args)
-    learn(env, args)
     policy = learn(env, args)
     
     result = {}
