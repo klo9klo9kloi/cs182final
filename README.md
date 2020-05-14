@@ -25,3 +25,9 @@ The training process automatically saves the model in the target directory. Foll
 ```
 python test_dqn.py ENV_NAME [--logdir <MODEL_LOCATION>] [--run_test_num <NUM_TESTS>]
 ```
+
+To visualize action values and saliency maps each timestep of a single test level, run the following command.
+
+```
+python test_dqn_viz.py ENV_NAME [--logdir <MODEL_LOCATION>] [--start_seed <START_SEED>] [--animate]
+```
