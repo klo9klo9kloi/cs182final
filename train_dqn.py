@@ -66,10 +66,14 @@ def learn(env, args):
         max_steps=args.num_steps,
         double_q=args.double_q,
         pr=args.pr,
-        beta=args.beta,
-        alpha=args.alpha,
+        pr_beta=args.pr_beta,
+        pr_alpha=args.pr_alpha,
         n=args.n,
-        h=args.h
+        h=args.h,
+        icm=args.icm,
+        icm_gamma=args.icm_gamma,
+        icm_beta=args.icm_beta,
+        icm_eta=args.icm_eta
     )
     env.close()
     return policy
@@ -102,14 +106,23 @@ if __name__ == "__main__":
     parser.add_argument('--num_steps', type=int, default=1e5) #100K, 250K, or 1M
     parser.add_argument('--double_q', action='store_true', default=False)
     parser.add_argument('--num_levels', type=int, default=50) #50, 100, 250, 500
-    parser.add_argument('--pr', action='store_true', default=False)
-    parser.add_argument('--beta', type=float, default=0.4)
-    parser.add_argument('--alpha', type=float, default=0.6)
     parser.add_argument('--n', type = int, default = 1)
     parser.add_argument('--h', action='store_true', default=False)
     parser.add_argument('--replay_buffer_size', default=1000000)
     # parser.add_argument('--num_envs', type=int, default=1) # can be used for parallel agents?
     parser.add_argument('--root_logdir', default='./data_dqn')
+
+    # for Prioritized Replay
+    parser.add_argument('--pr', action='store_true', default=False)
+    parser.add_argument('--pr_beta', type=float, default=0.4)
+    parser.add_argument('--pr_alpha', type=float, default=0.6)
+
+    # for ICM
+    parser.add_argument('--icm', action='store_true', default=False)
+    parser.add_argument('--icm_gamma', type=float, default=0.1)
+    parser.add_argument('--icm_beta', type=float, default=0.2)
+    parser.add_argument('--icm_eta', type=float, default=10)
+
     parser.add_argument('--run_test_num', type=int, default=0)
     args = parser.parse_args()
 
@@ -123,12 +136,15 @@ if __name__ == "__main__":
         exp_name = 'double-dqn'
     if args.pr:
         exp_name += '_pr'
+    if args.icm:
+        exp_name += '_icm'
 
     if args.n:
         print("warning: do not use --n.")
 
     if not(os.path.exists(args.root_logdir)):
         os.makedirs(args.root_logdir)
+
     logdir = exp_name+ '_' +args.env+ '_' +time.strftime("%d-%m-%Y_%H-%M-%S")
     logdir = os.path.join(args.root_logdir, logdir)
     logz.configure_output_dir(logdir)
@@ -150,4 +166,3 @@ if __name__ == "__main__":
     
     with open(osp.join(logdir, "testing_results.json"), 'w') as out:
         out.write(json.dumps(result, separators=(',\n','\t:\t'), sort_keys=True))
-        
