@@ -11,3 +11,11 @@ The model can be run on any of the procgen environments that support 'easy' mode
 ```
 python train_dqn.py ENV_NAME [--num_steps <NUM_STEPS>] [--num_levels <NUM_LEVELS>] [--pr] [--replay_buffer_size <NUM_SIZE_BUFFER>] [--seed <SEED>]
 ```
+
+## Testing the Model
+
+The training process automatically saves the model in the target directory. Follow the command line signature below to test the model against some number of randomly generated seeds. Generated JSON results will be located in the same directory as the model.
+
+```
+python test_dqn.py ENV_NAME [--logdir <MODEL_LOCATION>] [--run_test_num <NUM_TESTS>]
+```
