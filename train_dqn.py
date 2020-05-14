@@ -1,12 +1,14 @@
 import os, random, time, argparse, gym, sys
+import json
+import os.path as osp, shutil, time, atexit, os, subprocess
 import logz
-from gym import wrappers
 import numpy as np
 import torch
 import torchvision
 import torch.nn as nn
 import dqn
 from dqn_utils import *
+from gym import wrappers
 # from procgen import ProcgenEnv
 
 class base_atari_model(nn.Module):
@@ -39,7 +41,7 @@ def learn(env, args):
     #         (1e6,   0.10),
     #         (limit, 0.01),
     #     ], outside_value=0.01
-    # )    
+    # )
     three_fourths = 3*args.num_steps/4
     seven_eigths = 7*args.num_steps/8
     exploration_schedule = PiecewiseSchedule([
@@ -48,11 +50,11 @@ def learn(env, args):
             (seven_eigths, 0.01),
         ], outside_value=0.01
     )
-    dqn.learn(
+    policy = dqn.learn(
         env=env,
         q_func_model=base_atari_model,
         exploration=exploration_schedule,
-        replay_buffer_size=1000000,
+        replay_buffer_size=args.replay_buffer_size,
         batch_size=32,
         gamma=0.99,
         learning_starts=50000,
@@ -74,6 +76,7 @@ def learn(env, args):
         icm_eta=args.icm_eta
     )
     env.close()
+    return policy
 
 
 def set_global_seeds(i):
@@ -105,6 +108,7 @@ if __name__ == "__main__":
     parser.add_argument('--num_levels', type=int, default=50) #50, 100, 250, 500
     parser.add_argument('--n', type = int, default = 1)
     parser.add_argument('--h', action='store_true', default=False)
+    parser.add_argument('--replay_buffer_size', default=1000000)
     # parser.add_argument('--num_envs', type=int, default=1) # can be used for parallel agents?
     parser.add_argument('--root_logdir', default='./data_dqn')
 
@@ -119,6 +123,7 @@ if __name__ == "__main__":
     parser.add_argument('--icm_beta', type=float, default=0.2)
     parser.add_argument('--icm_eta', type=float, default=10)
 
+    parser.add_argument('--run_test_num', type=int, default=0)
     args = parser.parse_args()
 
     assert args.n >= 1, "n-step must be at least 1."
@@ -134,6 +139,9 @@ if __name__ == "__main__":
     if args.icm:
         exp_name += '_icm'
 
+    if args.n:
+        print("warning: do not use --n.")
+
     if not(os.path.exists(args.root_logdir)):
         os.makedirs(args.root_logdir)
 
@@ -142,6 +150,20 @@ if __name__ == "__main__":
     logz.configure_output_dir(logdir)
     args.logdir = logdir
 
+    logz.save_params(vars(args), args.logdir)
+
     env = get_env(args)
     learn(env, args)
-# ran with seed 70, 100, 200
+    policy = learn(env, args)
+    
+    result = {}
+    for i in range(args.run_test_num):
+        seed = random.randint(0, 999999)
+        env = gym.make("procgen:procgen-" + args.env + "-v0", num_levels=1, start_level=seed, distribution_mode='easy')
+        env.seed(seed)
+        #print("Run with seed " + str(seed) + ": " + str(dqn.step_best(env, policy)))
+        result[seed] = dqn.step_best(env, policy)
+        env.close()
+    
+    with open(osp.join(logdir, "testing_results.json"), 'w') as out:
+        out.write(json.dumps(result, separators=(',\n','\t:\t'), sort_keys=True))

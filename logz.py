@@ -17,6 +17,7 @@ A['EpRewMean']
 
 import os.path as osp, shutil, time, atexit, os, subprocess
 import pickle
+import torch
 import tensorflow as tf
 
 color2num = dict(
@@ -69,9 +70,13 @@ def log_tabular(key, val):
     assert key not in G.log_current_row, "You already set %s this iteration. Maybe you forgot to call dump_tabular()"%key
     G.log_current_row[key] = val
 
-def save_params(params):
-    with open(osp.join(G.output_dir, "params.json"), 'w') as out:
+def save_params(params, output_dir):
+    with open(osp.join(output_dir, "params.json"), 'w') as out:
         out.write(json.dumps(params, separators=(',\n','\t:\t'), sort_keys=True))
+
+def save_model_params(policy, target):
+    torch.save(policy.cpu().state_dict(), G.output_dir + '/policy.pth')
+    torch.save(target.cpu().state_dict(), G.output_dir + '/target.pth')
 
 def pickle_tf_vars():  
     """
