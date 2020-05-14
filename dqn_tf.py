@@ -385,5 +385,6 @@ def learn(*args, **kwargs):
         alg.log_progress()
         if alg.t > alg.max_steps:
             print("\nt = {} exceeds max_steps = {}".format(alg.t, alg.max_steps))
-            logz.pickle_tf_vars()
+            with alg.session.as_default():
+                logz.pickle_tf_vars()
             sys.exit()

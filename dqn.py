@@ -33,6 +33,7 @@ def huber_loss(x, delta=1.0):
 def step_best(env, policy, frame_history_len = 4):
     # Uses the given policy to step the env until done. Used to evaluate the trained policy.
     obs = env.reset()
+    policy.to(device)
     frames = [np.zeros_like(obs) for _ in range(frame_history_len - 1)]
     frames.append(obs)
     encoded_obs = np.concatenate(frames, 2)
