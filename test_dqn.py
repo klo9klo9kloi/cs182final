@@ -31,16 +31,10 @@ if __name__ == "__main__":
     policy.load_state_dict(torch.load(load_path))
 
     result = {}
-    if args.seed < 0:
-        seed = random.randint(0, 999999)
-        set_global_seeds(seed)
-    else:
-        seed = args.seed
 
     for i in tqdm(range(args.run_test_num), desc="Running tests...."):
         #print("Run with seed " + str(seed) + ": " + str(dqn.step_best(env, policy)))
         env = gym.make("procgen:procgen-" + args.env + "-v0", num_levels=1, start_level=args.start_seed+i, distribution_mode='easy')
-        env.seed(seed) 
         result[args.start_seed+i] = dqn.step_best(env, policy)
         env.close()
     
