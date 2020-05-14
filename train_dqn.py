@@ -29,7 +29,6 @@ class base_atari_model(nn.Module):
         )
     def forward(self, x):
         x = self.convnet(x)
-       # print(x.shape)
         x = x.reshape(x.shape[0], -1)
         x = self.action_value(x)
         return x
